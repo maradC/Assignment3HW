@@ -7,68 +7,59 @@
 
 using namespace std;
 
-int findMin(int arr[], int start, int end) {
-    int min = arr[start];
-    for (int i = start + 1; i < end; i++) {
-        if (arr[i] < min) {
-            min = arr[i];
-        }
-    }
-    return min;
-}
-
 int main() {
-    const int SIZE = 20;
-    int arr[SIZE];
-    int fd[2];
+    // Create array of 20 numbers
+    int arr[20];
     
-    // Seed random number generator
-    srand(time(nullptr));
-    
-    // Fill array with random numbers (0-100)
-    cout << "Array elements: ";
-    for (int i = 0; i < SIZE; i++) {
-        arr[i] = rand() % 101;
+    // Fill array with random numbers from 1 to 50
+    srand(time(0));
+    cout << "Array numbers: ";
+    for(int i = 0; i < 20; i++) {
+        arr[i] = rand() % 50 + 1;  // Numbers between 1 and 50
         cout << arr[i] << " ";
     }
     cout << endl;
-    
-    // Create pipe
-    if (pipe(fd) == -1) {
-        cout << "Pipe failed" << endl;
-        return 1;
-    }
+
+    // Create pipe for communication
+    int pipe_fd[2];
+    pipe(pipe_fd);
     
     // Create child process
-    pid_t pid = fork();
+    int pid = fork();
     
-    if (pid < 0) {
-        cout << "Fork failed" << endl;
-        return 1;
-    }
-    
-    if (pid == 0) { // Child process
-        close(fd[0]); // Close read end
-        int childMin = findMin(arr, SIZE/2, SIZE);
-        cout << "Child process (PID " << getpid() << ") found minimum: " << childMin << endl;
-        write(fd[1], &childMin, sizeof(childMin));
-        close(fd[1]);
-        exit(0);
-    } else { // Parent process
-        close(fd[1]); // Close write end
-        int parentMin = findMin(arr, 0, SIZE/2);
-        cout << "Parent process (PID " << getpid() << ") found minimum: " << parentMin << endl;
+    if(pid == 0) {  // Child process
+        // Find minimum in second half (index 10 to 19)
+        int min = arr[10];
+        for(int i = 11; i < 20; i++) {
+            if(arr[i] < min) {
+                min = arr[i];
+            }
+        }
         
-        int childMin;
-        read(fd[0], &childMin, sizeof(childMin));
-        close(fd[0]);
+        cout << "Child process (PID: " << getpid() << ") found min: " << min << endl;
         
-        // Wait for child to finish
-        wait(NULL);
+        // Send result to parent
+        write(pipe_fd[1], &min, sizeof(min));
+        return 0;
+        
+    } else {  // Parent process
+        // Find minimum in first half (index 0 to 9)
+        int min = arr[0];
+        for(int i = 1; i < 10; i++) {
+            if(arr[i] < min) {
+                min = arr[i];
+            }
+        }
+        
+        cout << "Parent process (PID: " << getpid() << ") found min: " << min << endl;
+        
+        // Get child's result
+        int child_min;
+        read(pipe_fd[0], &child_min, sizeof(child_min));
         
         // Find overall minimum
-        int overallMin = (parentMin < childMin) ? parentMin : childMin;
-        cout << "Overall minimum of the array: " << overallMin << endl;
+        int final_min = (min < child_min) ? min : child_min;
+        cout << "\nSmallest number in entire array: " << final_min << endl;
     }
     
     return 0;
